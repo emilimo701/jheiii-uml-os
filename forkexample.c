@@ -28,13 +28,13 @@ main()
    pid_t pid = fork();
 
    if (pid == 0) {               // child
- //     sleep (300);
+      // Code only executed by first child process
+      sleep(1);
       g++;
       l++;
       (*p)++;
-      // Code only executed by child process
-      printf ("in child: pid: %d\n", getpid ());
-      printf ("g = %d l = %d p = %d *p=%d\n", g, l, p, *p);
+      printf ("in first child: pid: %d\n", getpid ());
+      printf ("g = %d l = %d p = %d *p=%d\n", g, l, p, (*p));
       printf ("Address: g = %ld l = %ld p = %ld\n\n\n", &g, &l, &p);
     }
     else if (pid < 0) {            // failed to fork
@@ -42,13 +42,33 @@ main()
         exit(1);
     }
     else {                        // parent
-//      sleep (300);
       // Code only executed by parent process
-
-sleep (5);
       printf ("in parent: pid: %d\n", getpid ());
       printf ("g = %d l = %d p = %d *p=%d\n", g, l, p, *p);
       printf ("Address: g = %ld l = %ld p = %ld\n\n\n", &g, &l, &p);
+      sleep(2);
+
+      pid = fork();
+      if (pid < 0) {
+         printf("error in fork\n");
+         exit(1);
+      }
+      else if (pid > 0) {
+         //code only executed by parent process
+         printf ("in parent: pid: %d\n", getpid ());
+         printf ("g = %d l = %d p = %d *p=%d\n", g, l, p, *p);
+         printf ("Address: g = %ld l = %ld p = %ld\n\n\n", &g, &l, &p);
+         int status;
+         wait(&status);
+         wait(&status);
+      }
+      else {
+         //code only executed by second child process
+         g--; l--; (*p)--; sleep(1);
+         printf("in second child: pid: %d\n", getpid());
+         printf("g = %d l = %d p = %d *p=%d\n", g, l, p, (*p));
+         printf("Address: g = %ld l = %ld p = %ld\n\n\n", &g, &l, &p);
+      }      
     }
 
     // Code executed by both parent and child.
