@@ -1,2 +1,12 @@
-problem2.1: source_problem2.1.c
-	gcc source_problem2.1.c -o problem2.1 --std=c99 -Wformat=0
+.DEFAULT_GOAL := all
+
+all: main/main_problem2.1.c child2/child2.c
+.PHONY: all
+
+.PHONY: main.main_problem2.1.c
+main/main_problem2.1.c:
+	cd main && $(MAKE)
+
+.PHONY: child2/child2.c`
+child2/child2.c:
+	cd child2 && $(MAKE)

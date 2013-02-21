@@ -17,19 +17,10 @@
 //
 // Instructor: Krishnan Seetharaman
 //------------------------------------------------------------------------
-#define _POSIX_C_SOURCE 2
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <stdlib.h> 
 
-#include <stdbool.h>
-#include <signal.h>
-
-
-#include <sys/wait.h>
-
-
+#include "problem2.1.h"
+#define READ_PERM	0644
+#define MKNOD_UNUSED	0
 //------------------------------------------------------------------------
 int usage (char *argv[])
 //------------------------------------------------------------------------
@@ -46,6 +37,7 @@ int usage (char *argv[])
     printf (buf);
     exit (0);
 }
+
 
 //------------------------------------------------------------------------
 void sig_handler(int signum)
@@ -209,17 +201,16 @@ int main(int argc, char *argv[])
 }
 */
 
-void sigterm_handler(int sigint) {
-   printf("in process (%d): Received signal %d. Exiting.\n", getpid(), sigint);
-   exit(0);
-}
-
 int g = 0;    // global
 
 //------------------------------------------------------------------------
 int main()
 //------------------------------------------------------------------------
 {
+   signal(SIGTERM, sigterm_handler);
+   signal(SIGUSR2, sigusr2_handler);
+   signal(SIGINT, sigint_handler);
+
    printf("\nJohn Emilian homework 0, problem 2.1\n\n");
 
    int l = 10;    // local stack variable;
@@ -237,23 +228,22 @@ int main()
 
    if (pid == 0) {
       // Code only executed by first child process
-      signal(SIGTERM, sigterm_handler);
       g++; l++; (*p)++;
-      char recv[64];
-      printf("in first child (%d): about to write message to pipe: \"%s\"\n", getpid(), "hi");
-      write(pipe_handle[1], "hi", 64);
+      char recv[HW0BUFSIZ];
+      printf("in first child (%d): writing message to pipe: \"%s\"\n", getpid(), "hi");
+      write(pipe_handle[1], "hi", HW0BUFSIZ);
       printf("in first child (%d): waiting 2 seconds for ack from parent\n", getpid());
       sleep(2); //wait for message back TODO remove sleep()
-      read(pipe_handle[0], &recv, 64);
+      read(pipe_handle[0], &recv, HW0BUFSIZ);
       printf("in first child (%d): received message through pipe: \"%s\"\n", getpid(), recv);
       printf("in first child (%d): ppid: %d\n", getpid (), getppid());
-      printf("in first child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
-      printf("in first child (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
+      //printf("in first child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
+      //printf("in first child (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
       while (1) {;}
    }
    else if (pid < 0) {
       printf("in parent (%d): error in fork\n", getpid());
-      exit(1);
+      exit(EXIT_FAILURE);
    }
    else {
       // Code only executed by parent process
@@ -264,26 +254,61 @@ int main()
 
       if (pid2 < 0) {
          printf("in parent(%d): error in fork\n", getpid());
-         exit(1);
+         kill(SIGTERM, pid);
+         exit(EXIT_FAILURE);
       }
       else if (pid2 > 0) {
          //code only executed by parent process
 
-         char receive[64];
-         sleep(1); //wait for message TODO remove sleep()
+         char receive[HW0BUFSIZ];
+
+
+         // -----------------------------
+         // Begin handshake with child 1.
+         sleep(1); //wait for child 1 message TODO remove sleep()
          printf("in pant (%d): waiting 1 second for message from child one\n", getpid());
-         read(pipe_handle[0], &receive, 64);
+         //check for message
+         read(pipe_handle[0], &receive, HW0BUFSIZ);
          if (*receive) {
+            // exclaim reception
             printf("in parent (%d): received: \"%s\"\n", getpid(), receive);
-            printf("in parent (%d): about to write message to pipe: \"%s\"\n", getpid(), "copy");
-            write(pipe_handle[1], "copy", 64);
+            printf("in parent (%d): about to wriiiiite message to pipe: \"%s\"\n", getpid(), "copy");
+            //write message back
+            write(pipe_handle[1], "copy", HW0BUFSIZ);
          }
          else {
+            // no message
             printf("in parent (%d): nothing in buffer from child one.\n", getpid());
          }
-         // TODO reverse
-         //TODO handshake with child 2
-         sleep(2); //wait for child to print its ack from us TODO remove this sleep()
+         //erase buffer contents
+         memset(receive, 0, HW0BUFSIZ);
+         sleep(2); //wait for child 1 to print its ack from us TODO remove this sleep()?
+         // End handshake with child 1.
+         // ---------------------------
+
+
+         // -----------------------------
+         // Begin handshake with child 2.
+         mode_t nodetype_and_permissions = (S_IFIFO | 0666); //set the node type to S_IFIFO with permissions (octal) 644 to write
+         //pipefailcheck(mknod(FIFO_LOC, nodetype_and_permissions, (dev_t) MKNOD_UNUSED), "creation of", pid2, pid);
+         receive[0] = 'g'; receive[1] = 'o'; receive[2] = 't'; receive[3] = ':'; receive[4] = ' ';
+         
+         // expecting message from child 2. read it from named pipe
+         printf("Waitin child 2\n");
+         int pipe_fd = open(FIFO_LOC, O_RDONLY); //child should already have made it and be waiting by now
+         pipefailcheck(pipe_fd, "read-opening", pid2, pid);
+         pipefailcheck(read(pipe_fd, &receive[5], HW0BUFSIZ), "read from", pid2, pid); close(pipe_fd);
+         printf("in parent (%d): received: \"%s\"\n", getpid(), &receive[5]);
+
+         // child 2 is expecting us to acknowledge
+         pipe_fd = open(FIFO_LOC, O_WRONLY);
+         pipefailcheck(pipe_fd, "write-opening", pid2, pid);
+         // write ack to pipe
+         pipefailcheck(write(pipe_fd, receive, HW0BUFSIZ), "write to", pid2, pid);
+         close(pipe_fd);
+         // End handshake with child 2.
+         // ---------------------------
+
 
          //printf ("in parent (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, *p);
          //printf ("in parent (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
@@ -296,25 +321,25 @@ int main()
          kill(pid, SIGTERM);
          waitpid(pid, &status, 0); //wait for SIGCHLD signal
          printf("in parent (%d): Child one terminated with exit status %d\n", getpid(), status);
-         //printf("in parent (%d): about to send signal %d to child with PID %d\n", getpid(), SIGTERM, pid2);
-         //kill(pid, SIGTERM); //TODO uncomment
-         //waitpid(pid2, &status2, 0); //wait for SIGCHLD signal TODO options? , uncomment
-         //printf("in parent (%d): Child two terminated with exit status %d\n\n\n", getpid(), status2); //TODO uncomment
+         printf("in parent (%d): about to send signal %d to child with PID %d\n", getpid(), SIGTERM, pid2);
+         kill(pid2, SIGTERM);
+         waitpid(pid2, &status2, 0); //wait for SIGCHLD signal
+         printf("in parent (%d): Child two terminated with exit status %d\n", getpid(), status2);
          printf("in parent (%d): done\n\n", getpid());
       }
       else {
          //code only executed by second child process
-         g--; l--; (*p)--; sleep(5);
          printf("in second child (%d): ppid: %d\n", getpid(), getppid());
-         printf("in second child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
-         printf("in second child (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
-         //TODO: exec
-         //while (1) {;}
+         execlp("/home/john/uml/os/hw/0/2.1/child2/c2", "/home/john/uml/os/hw/0/2.1/child2/c2", NULL);
+         printf("ERROR in child 2: execlp() returned -1\n");
+         kill(getppid(), SIGTERM);
+         kill(pid, SIGTERM);
+         exit(EXIT_FAILURE);
       }      
    }
 
    // Code executed by both parent and child.
-   exit(0);
+   exit(EXIT_SUCCESS);
 }
 
 
