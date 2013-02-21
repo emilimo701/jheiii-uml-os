@@ -19,8 +19,7 @@
 //------------------------------------------------------------------------
 
 #include "problem2.1.h"
-#define READ_PERM	0644
-#define MKNOD_UNUSED	0
+
 //------------------------------------------------------------------------
 int usage (char *argv[])
 //------------------------------------------------------------------------
@@ -235,18 +234,18 @@ int main()
    if (pid == 0) {
       // Code only executed by first child process
       g++; l++; (*p)++;
+      printf("[INFO]\tin first child (%d): ppid: %d\n", getpid (), getppid());
+      //printf("in first child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
+      //printf("in first child (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
       char recv[HW0BUFSIZ];
       close(pipe_handle_msg[0]);
       close(pipe_handle_ack[1]);
-      printf("in first child (%d): writing message to pipe: \"%s\"\n", getpid(), "hi");
+      printf("[EVENT]\tin first child (%d): writing message to pipe: \"%s\"\n", getpid(), "hi");
       write(pipe_handle_msg[1], "hi", HW0BUFSIZ); close(pipe_handle_msg[1]);
       //printf("in first child (%d): waiting 2 seconds for ack from parent\n", getpid());
       //sleep(2); //wait for message back TODO remove sleep()
       read(pipe_handle_ack[0], &recv, HW0BUFSIZ); close(pipe_handle_ack[0]);
-      printf("in first child (%d): received message through pipe: \"%s\"\n", getpid(), recv);
-      printf("in first child (%d): ppid: %d\n", getpid (), getppid());
-      //printf("in first child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
-      //printf("in first child (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
+      printf("[EVENT]\tin first child (%d): received message through pipe: \"%s\"\n[EVENT]\tCHILD 1: Done; entering loop\n", getpid(), recv);
       while (1) {;}
    }
    else if (pid < 0) {
@@ -277,8 +276,8 @@ int main()
          read(pipe_handle_msg[0], &receive, HW0BUFSIZ); close(pipe_handle_msg[0]);
          if (*receive) {
             // exclaim reception
-            printf("in parent (%d): received: \"%s\"\n", getpid(), receive);
-            printf("in parent (%d): about to wriiiiite message to pipe: \"%s\"\n", getpid(), "copy");
+            printf("[EVENT]\tin parent (%d): received message from child 1: \"%s\"\n", getpid(), receive);
+            printf("[EVENT]\tin parent (%d): about to write message for child 1 to pipe: \"%s\"\n", getpid(), "copy");
             //write message back
             write(pipe_handle_ack[1], "copy", HW0BUFSIZ); close(pipe_handle_ack[0]);
          }
@@ -295,16 +294,16 @@ int main()
 
          // -----------------------------
          // Begin handshake with child 2.
-         mode_t nodetype_and_permissions = (S_IFIFO | 0666); //set the node type to S_IFIFO with permissions (octal) 644 to write
+         mode_t nodetype_and_permissions = (S_IFIFO | READ_PERM); //set the node type to S_IFIFO with permissions (octal) 644
          int mknod_retval = mknod(FIFO_LOC, nodetype_and_permissions, (dev_t) MKNOD_UNUSED);
          receive[0] = 'g'; receive[1] = 'o'; receive[2] = 't'; receive[3] = ':'; receive[4] = ' ';
          
          // expecting message from child 2. read it from named pipe
-         printf("PARENT: Waitin child 2 ... mknod_retval=%d\n", mknod_retval);
+         printf("[INFO]\tPARENT: Waitin child 2 ... mknod_retval=%d\n", mknod_retval);
          int pipe_fd = open(FIFO_LOC, O_RDONLY); //child should already have made it and be waiting by now
          pipefailcheck(pipe_fd, "read-opening", pid2, pid);
          pipefailcheck(read(pipe_fd, &receive[5], HW0BUFSIZ), "read from", pid2, pid); close(pipe_fd);
-         printf("in parent (%d): received: \"%s\"\n", getpid(), &receive[5]);
+         printf("[EVENT]\tin parent (%d): received message from child 2: \"%s\"\n", getpid(), &receive[5]);
 
          // child 2 is expecting us to acknowledge
          pipe_fd = open(FIFO_LOC, O_WRONLY);
@@ -319,23 +318,23 @@ int main()
          //printf ("in parent (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, *p);
          //printf ("in parent (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
 
+         printf("[EVENT]\tin parent (%d): sleeping for a few seconds.\n", getpid());
          sleep(3); // "7. Parent will sleep for a few seconds..."
-         printf("in parent (%d): sleeping for 3 seconds.\n", getpid());
 
          int status, status2;
-         printf("in parent (%d): about to send signal %d to child with PID %d\n", getpid(), SIGTERM, pid);
+         printf("[EVENT]\tin parent (%d): about to send signal %d to child with PID %d\n", getpid(), SIGTERM, pid);
          kill(pid, SIGTERM);
          waitpid(pid, &status, 0); //wait for SIGCHLD signal
-         printf("in parent (%d): Child one terminated with exit status %d\n", getpid(), status);
-         printf("in parent (%d): about to send signal %d to child with PID %d\n", getpid(), SIGTERM, pid2);
+         printf("[INFO]\tin parent (%d): Child one terminated with exit status %d\n", getpid(), status);
+         printf("[EVENT]\tin parent (%d): about to send signal %d to child with PID %d\n", getpid(), SIGTERM, pid2);
          kill(pid2, SIGTERM);
          waitpid(pid2, &status2, 0); //wait for SIGCHLD signal
-         printf("in parent (%d): Child two terminated with exit status %d\n", getpid(), status2);
-         printf("in parent (%d): done\n\n", getpid());
+         printf("[INFO]\tin parent (%d): Child two terminated with exit status %d\n", getpid(), status2);
+         printf("[EVENT]\tin parent (%d): done\n\n", getpid());
       }
       else {
          //code only executed by second child process
-         printf("in second child (%d): ppid: %d\n", getpid(), getppid());
+         printf("[INFO]\tin second child (%d): ppid: %d\n", getpid(), getppid());
          execlp("/home/john/uml/os/hw/0/2.1/child2/c2", "/home/john/uml/os/hw/0/2.1/child2/c2", NULL);
          printf("ERROR in child 2: execlp() returned -1\n");
          kill(getppid(), SIGTERM);
