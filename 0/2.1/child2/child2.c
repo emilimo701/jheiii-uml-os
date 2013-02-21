@@ -18,10 +18,10 @@ int main()
    mode_t nodetype_and_permissions = (S_IFIFO | READ_PERM); //set the node type to S_IFIFO with permissions (octal) 644 to write
 
    // create named pipe
-   pipefailcheck(mknod(FIFO_LOC, nodetype_and_permissions, (dev_t) MKNOD_UNUSED), "creation of", getppid(), PFC_UNUSED);
+   int mknod_retval = mknod(FIFO_LOC, nodetype_and_permissions, (dev_t) MKNOD_UNUSED);
 
    // wait for parent to show up at other end of pipe
-   printf("Waitin on parent\n");
+   printf("CHILD 2: Waitin on parent ... mknod_retval=%d\n", mknod_retval);
    int pipe_fd = open(FIFO_LOC, O_WRONLY);
    pipefailcheck(pipe_fd, "write-opening", getppid(), PFC_UNUSED);
    // parent is expecting us to initiate. write message to pipe

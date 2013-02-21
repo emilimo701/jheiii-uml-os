@@ -217,9 +217,15 @@ int main()
 
    int *p = malloc (sizeof (int));    // heap variable
    *p = 20;
-   int pipe_handle[2];
+   int pipe_handle_msg[2];
+   int pipe_handle_ack[2];
 
-   if (pipe(pipe_handle) < 0) {
+   if (pipe(pipe_handle_msg) < 0) {
+      printf("in parent (%d): error in pipe()\n", getpid());
+      exit(1);
+   }
+
+   if (pipe(pipe_handle_ack) < 0) {
       printf("in parent (%d): error in pipe()\n", getpid());
       exit(1);
    }
@@ -230,11 +236,13 @@ int main()
       // Code only executed by first child process
       g++; l++; (*p)++;
       char recv[HW0BUFSIZ];
+      close(pipe_handle_msg[0]);
+      close(pipe_handle_ack[1]);
       printf("in first child (%d): writing message to pipe: \"%s\"\n", getpid(), "hi");
-      write(pipe_handle[1], "hi", HW0BUFSIZ);
-      printf("in first child (%d): waiting 2 seconds for ack from parent\n", getpid());
-      sleep(2); //wait for message back TODO remove sleep()
-      read(pipe_handle[0], &recv, HW0BUFSIZ);
+      write(pipe_handle_msg[1], "hi", HW0BUFSIZ); close(pipe_handle_msg[1]);
+      //printf("in first child (%d): waiting 2 seconds for ack from parent\n", getpid());
+      //sleep(2); //wait for message back TODO remove sleep()
+      read(pipe_handle_ack[0], &recv, HW0BUFSIZ); close(pipe_handle_ack[0]);
       printf("in first child (%d): received message through pipe: \"%s\"\n", getpid(), recv);
       printf("in first child (%d): ppid: %d\n", getpid (), getppid());
       //printf("in first child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
@@ -265,24 +273,22 @@ int main()
 
          // -----------------------------
          // Begin handshake with child 1.
-         sleep(1); //wait for child 1 message TODO remove sleep()
-         printf("in pant (%d): waiting 1 second for message from child one\n", getpid());
-         //check for message
-         read(pipe_handle[0], &receive, HW0BUFSIZ);
+         close(pipe_handle_msg[1]);
+         read(pipe_handle_msg[0], &receive, HW0BUFSIZ); close(pipe_handle_msg[0]);
          if (*receive) {
             // exclaim reception
             printf("in parent (%d): received: \"%s\"\n", getpid(), receive);
             printf("in parent (%d): about to wriiiiite message to pipe: \"%s\"\n", getpid(), "copy");
             //write message back
-            write(pipe_handle[1], "copy", HW0BUFSIZ);
+            write(pipe_handle_ack[1], "copy", HW0BUFSIZ); close(pipe_handle_ack[0]);
          }
          else {
             // no message
             printf("in parent (%d): nothing in buffer from child one.\n", getpid());
          }
          //erase buffer contents
-         memset(receive, 0, HW0BUFSIZ);
-         sleep(2); //wait for child 1 to print its ack from us TODO remove this sleep()?
+         memset(receive, '\0', HW0BUFSIZ);
+         //sleep(2); //wait for child 1 to print its ack from us TODO remove this sleep()?
          // End handshake with child 1.
          // ---------------------------
 
@@ -290,11 +296,11 @@ int main()
          // -----------------------------
          // Begin handshake with child 2.
          mode_t nodetype_and_permissions = (S_IFIFO | 0666); //set the node type to S_IFIFO with permissions (octal) 644 to write
-         //pipefailcheck(mknod(FIFO_LOC, nodetype_and_permissions, (dev_t) MKNOD_UNUSED), "creation of", pid2, pid);
+         int mknod_retval = mknod(FIFO_LOC, nodetype_and_permissions, (dev_t) MKNOD_UNUSED);
          receive[0] = 'g'; receive[1] = 'o'; receive[2] = 't'; receive[3] = ':'; receive[4] = ' ';
          
          // expecting message from child 2. read it from named pipe
-         printf("Waitin child 2\n");
+         printf("PARENT: Waitin child 2 ... mknod_retval=%d\n", mknod_retval);
          int pipe_fd = open(FIFO_LOC, O_RDONLY); //child should already have made it and be waiting by now
          pipefailcheck(pipe_fd, "read-opening", pid2, pid);
          pipefailcheck(read(pipe_fd, &receive[5], HW0BUFSIZ), "read from", pid2, pid); close(pipe_fd);
