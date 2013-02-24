@@ -1,12 +1,17 @@
-.DEFAULT_GOAL := all
+CC := gcc
+CFLAGS := -I../include --std=c99 -Wformat=0 
+MAKEFLAGS := --no-print-directory
+SUBDIRS := main child2 common
 
-all: main/main_problem2.1.c child2/child2.c
-.PHONY: all
+#%.o : %.c
+#	$(CC) -c $(CFLAGS) $< -o $@
 
-.PHONY: main.main_problem2.1.c
-main/main_problem2.1.c:
-	cd main && $(MAKE)
+.PHONY: subdirs $(SUBDIRS)
 
-.PHONY: child2/child2.c`
-child2/child2.c:
-	cd child2 && $(MAKE)
+subdirs: $(SUBDIRS)
+
+$(SUBDIRS):
+	@$(MAKE) $(MAKEFLAGS) -C $@
+
+main: common
+child2: common
