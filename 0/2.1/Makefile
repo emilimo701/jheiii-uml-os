@@ -1,7 +1,7 @@
-CC := gcc
-CFLAGS := -I../include --std=c99 -Wformat=0 
-MAKEFLAGS := --no-print-directory
-SUBDIRS := main child2 common
+export CC := gcc
+export CFLAGS := -I../include --std=c99 -Wformat=0 
+export MAKEFLAGS := --no-print-directory
+export SUBDIRS := main child2 common
 
 #%.o : %.c
 #	$(CC) -c $(CFLAGS) $< -o $@
