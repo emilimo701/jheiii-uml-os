@@ -28,3 +28,9 @@ void pipefailcheck(int retnval, char *operation, pid_t otherpid, pid_t anotherpi
    }
 }
 
+/**/
+/**/
+/**/
+/**/
+/**/
+/**/
