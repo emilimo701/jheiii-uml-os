@@ -1,0 +1,2 @@
+nothing.o: nothing.c
+nothing.c :

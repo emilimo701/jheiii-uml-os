@@ -1,8 +1,8 @@
-exename := semaphoreexample2
-this_makefile_alias := hw1
+exename := nothing
+this_makefile_alias :=
 extra_include_paths :=
 libs := pthread
-sub_exe_dirs := nothing
+sub_exe_dirs :=
 
 # This makefile assumes the following: --------------------------|
 #  - all .c source files are in working directory                |
@@ -25,8 +25,8 @@ sources := $(wildcard *.c)
 objects := $(patsubst %.c,%.o,$(sources))
 
 # the following two lines may be commented if no sub_exe_dirs
-$(this_makefile_alias): $(exename) $(sub_exe_dirs)
-.PHONY: $(this_makefile_alias)
+#$(this_makefile_alias): $(exename) $(sub_exe_dirs)
+#.PHONY: $(this_makefile_alias)
 
 # link.
 $(exename): $(objects)
