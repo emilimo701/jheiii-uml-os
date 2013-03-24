@@ -1,0 +1,2 @@
+empty.o: empty.c empty.h
+empty.c empty.h :

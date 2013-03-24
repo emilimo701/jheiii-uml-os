@@ -35,18 +35,22 @@ int main()
    int l = 10;    // local stack variable;
 
    int *p = malloc (sizeof (int));    // heap variable
+   if (NULL == p) {
+      fprintf(stderr, "Failed to allocate memory.\n");
+      exit(EXIT_FAILURE);
+   }
    *p = 20;
    int pipe_handle_msg[2];
    int pipe_handle_ack[2];
 
-   if (pipe(pipe_handle_msg) < 0) {
-      printf("in parent (%d): error in pipe()\n", getpid());
-      exit(1);
+   if (pipe(pipe_handle_msg) == -1) {
+      fprintf(stderr, "in parent (%d): error in pipe()\n", getpid());
+      exit(EXIT_FAILURE);
    }
 
-   if (pipe(pipe_handle_ack) < 0) {
-      printf("in parent (%d): error in pipe()\n", getpid());
-      exit(1);
+   if (pipe(pipe_handle_ack) == -1) {
+      fprintf(stderr, "in parent (%d): error in pipe()\n", getpid());
+      exit(EXIT_FAILURE);
    }
 
    pid_t pid = fork();
@@ -54,22 +58,40 @@ int main()
    if (pid == 0) {
       // Code only executed by first child process
       g++; l++; (*p)++;
-      printf("[EVENT]\tin first child (%d): HELLO, WORLD!!! My ppid is %d\n", getpid (), getppid());
-      //printf("in first child (%d): g = %d l = %d p = %d *p=%d\n", getpid(), g, l, p, (*p));
-      //printf("in first child (%d): Address: g = %ld l = %ld p = %ld\n", getpid(), &g, &l, &p);
+      printf("[EVENT]\tin first child (%d): HELLO, WORLD! My ppid is %d\n", getpid (), getppid());
       char recv[HW0BUFSIZ];
-      close(pipe_handle_msg[0]);
-      close(pipe_handle_ack[1]);
+      if (-1 == close(pipe_handle_msg[0])) { //returns a ssize_t but compiler doesn't require cast?
+         fprintf(stderr, "C1: close(pipe_handle_msg[0] failed.\n");
+         exit(EXIT_FAILURE);
+      }
+      if (close(pipe_handle_ack[1]) == -1) {
+         fprintf(stderr, "C1: close(pipe_handle_ack[1] failed.\n");
+         exit(EXIT_FAILURE);
+      }
       printf("[EVENT]\tin first child (%d): writing message to pipe: \"%s\"\n", getpid(), "hi");
-      write(pipe_handle_msg[1], "hi", HW0BUFSIZ); close(pipe_handle_msg[1]);
-      //printf("in first child (%d): waiting 2 seconds for ack from parent\n", getpid());
-      //sleep(2); //wait for message back TODO remove sleep()
-      read(pipe_handle_ack[0], &recv, HW0BUFSIZ); close(pipe_handle_ack[0]);
+      if (-1 == write(pipe_handle_msg[1], "hi", HW0BUFSIZ)) {
+         fprintf(stderr, "Error writing to named pipe in 1st child.\n");
+         exit(EXIT_FAILURE);
+      }
+      if (-1 == read(pipe_handle_ack[0], &recv, HW0BUFSIZ)) {
+         fprintf(stderr, "Error reading from named pipe in first child.\n");
+         exit(EXIT_FAILURE);
+      }
+
+      if (close(pipe_handle_msg[1]) == -1) {
+         fprintf(stderr, "C1: close(pipe_handle_msg[1] .\n");
+         exit(EXIT_FAILURE);
+      }
+
+      if (close(pipe_handle_ack[0]) == -1) {
+         fprintf(stderr, "C1: close(pipe_handle_ack[0] .\n");
+         exit(EXIT_FAILURE);
+      }
       printf("[EVENT]\tin first child (%d): received message through pipe: \"%s\"\n[EVENT]\tCHILD 1: Done; entering loop\n", getpid(), recv);
-      while (1) {;}
+      while (1) {;} // question: will this burn CPU? starve other processes? or does compiler handle no-ops specially?
    }
    else if (pid < 0) {
-      printf("in parent (%d): error in fork\n", getpid());
+      fprintf(stderr, "in parent (%d): error in fork\n", getpid());
       exit(EXIT_FAILURE);
    }
    else {
@@ -80,8 +102,9 @@ int main()
       pid_t pid2 = fork();
 
       if (pid2 < 0) {
-         printf("in parent(%d): error in fork\n", getpid());
-         kill(SIGTERM, pid);
+         fprintf(stderr, "in parent(%d): error in fork\n", getpid());
+         if (kill(SIGTERM, pid) == -1) {
+            fprintf(stderr, "%d failed sending sigterm to %d.\n", getpid(), pid);
          exit(EXIT_FAILURE);
       }
       else if (pid2 > 0) {
@@ -92,18 +115,40 @@ int main()
 
          // -----------------------------
          // Begin handshake with child 1.
-         close(pipe_handle_msg[1]);
-         read(pipe_handle_msg[0], &receive, HW0BUFSIZ); close(pipe_handle_msg[0]);
-         if (*receive) {
-            // exclaim reception
-            printf("[EVENT]\tin parent (%d): received message from child 1: \"%s\"\n", getpid(), receive);
-            printf("[EVENT]\tin parent (%d): about to write message for child 1 to pipe: \"%s\"\n", getpid(), "copy");
-            //write message back
-            write(pipe_handle_ack[1], "copy", HW0BUFSIZ); close(pipe_handle_ack[0]);
+
+
+
+         if (close(pipe_handle_msg[1]) == -1) {
+            fprintf(stderr, "C2: close(pipe_handle_msg[1]  .\n");
+            exit(EXIT_FAILURE);
          }
-         else {
-            // no message
-            printf("in parent (%d): nothing in buffer from child one.\n", getpid());
+
+         if (close(pipe_handle_ack[0]) == -1) {
+            fprintf(stderr, "C2: close(pipe_handle_ack[0] .\n");
+            exit(EXIT_FAILURE);
+         }
+
+         if (-1 == read(pipe_handle_msg[0], &receive, HW0BUFSIZ)) {
+            fprintf(stderr, "Error reading from named pipe in parent.\n");
+            exit(EXIT_FAILURE);
+         }
+
+         // exclaim reception
+         printf("[EVENT]\tin parent (%d): received message from child 1: \"%s\"\n", getpid(), receive);
+         printf("[EVENT]\tin parent (%d): about to write message for child 1 to pipe: \"%s\"\n", getpid(), "copy");
+
+         //write message back
+         if (-1 == write(pipe_handle_ack[1], "copy", HW0BUFSIZ)) {
+            fprintf(stderr, "Error writing to named pipe in parent.\n");
+            exit(EXIT_FAILURE);
+         }
+         if (-1 == close(pipe_handle_msg[0])) {
+            fprintf(stderr, "C2: close(pipe_handle_msg[0] failed.\n");
+            exit(EXIT_FAILURE);
+         }
+         if (close(pipe_handle_ack[1]) == -1) {
+            fprintf(stderr, "C2: close(pipe_handle_ack[1] failed.\n");
+            exit(EXIT_FAILURE);
          }
          //erase buffer contents
          memset(receive, '\0', HW0BUFSIZ);
@@ -122,7 +167,8 @@ int main()
          //printf("[INFO]\tPARENT: Waitin child 2 ... mknod_retval=%d\n", mknod_retval);
          int pipe_fd = open(FIFO_LOC, O_RDONLY); //child should already have made it and be waiting by now
          pipefailcheck(pipe_fd, "read-opening", pid2, pid);
-         pipefailcheck(read(pipe_fd, &receive[5], HW0BUFSIZ), "read from", pid2, pid); close(pipe_fd);
+         pipefailcheck(read(pipe_fd, &receive[5], HW0BUFSIZ), "read from", pid2, pid);
+         close(pipe_fd);
          printf("[EVENT]\tin parent (%d): received message from child 2: \"%s\"\n", getpid(), &receive[5]);
 
          // child 2 is expecting us to acknowledge
