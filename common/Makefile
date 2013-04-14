@@ -1,6 +1,7 @@
-exename := driver
+exename :=
 includes :=
 libs := pthread
+subdirs :=
 
 # This makefile assumes the following: --------------------------|
 #  - all .c source files are in working directory                |
@@ -24,6 +25,13 @@ objects := $(patsubst %.c,%.o,$(sources))
 
 # link.
 $(exename): $(objects)
+
+# convenience for making subdirectory
+#$(this_makefile_alias): $(exename) $(sub_exe_dirs)
+#.PHONY: $(this_makefile_alias)
+$(subdirs):
+	@$(MAKE) --no-print-directory -C $@
+.PHONY: $(subdirs)
 
 # import dependency file rules from previous compilation, if they exist
 -include $(sources:.c=.P)

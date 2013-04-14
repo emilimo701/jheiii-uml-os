@@ -16,6 +16,8 @@
 /* constants								    */
 /* -------------------------------------------------------------------------*/
 
+#define _XOPEN_SOURCE 500
+
 #define DEFAULT_SLEEP_TIME	5
 #define DEFAULT_INCR		1
 #define DEFAULT_SHMKEY		1234
@@ -23,6 +25,9 @@
 
 #define DEFAULT_NTHREADS	2
 #define DEFAULT_NIDS		1000000
+
+#define DEFAULT_ERRCODE		28657
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,23 +64,35 @@ typedef struct ThreadData_s {
     SharedData *shared_data;
 } ThreadData;
 
+typedef struct {
+    char *name;
+    int startID;
+    int endID;
+} Pending_Producer_Process;
+
 // forward declarations
 void handler (int sig);
 void error (const char* msg);
+void jquit(int code, const char *message);
 
 // globals
 int shmid;               /* shared memory ID */
 SharedData *shared_data = NULL;
 int sleepTime = DEFAULT_SLEEP_TIME;
 int incr = DEFAULT_INCR;
+bool bHelp = false;
+bool bStatus = false;
 bool bProducer = false;
 bool bConsumer = false;
+bool bProcess = false;
 bool bThread = false;
 bool bSemaphore = false;
 int shmkey = DEFAULT_SHMKEY;
 char semname[256];
 sem_t *mutex;
 ThreadData td;
+Pending_Producer_Process ppp[32];
+int ppp_count = 0;
 
 //------------------------------------------------------------------------
 void CreateShMem (void)
@@ -181,17 +198,17 @@ void handler (int sig)
     printf ("In signal handler with signal # %d\n", sig);
 
     if (shared_data) {
+        /* Detach the shared memory segment */
+        if (shmdt(shared_data) == -1) {
+            perror("shmdt");
+            exit(1);
+        }
         /* remove shared memory */
         if (shmctl (shmid, IPC_RMID, 0) == -1) {
             error ("Handler failed ...");
         }
         else {
             printf ("Shared Memory Id: %d removed ...\n", shmid);
-        }
-        /* Detach the shared memory segment */
-        if (shmdt(shared_data) == -1) {
-            perror("shmdt");
-            exit(1);
         }
     }
 
@@ -259,6 +276,22 @@ void error (const char* msg)
     exit (1);
 }
 
+
+
+
+int wrapsyscall(int retval, const char *errmsg) {
+    if (-1 == retval) {
+        if (errmsg) {
+            perror(errmsg);
+        }
+        else {
+            perror("Anonymous system call failed. Errno");
+        }
+    }
+    return retval;
+}
+
+
 //------------------------------------------------------------------------
 void updateShared (int n1, int n2)
 // main routine; both processes write to and read from shared memory;
@@ -297,6 +330,7 @@ void updateShared (int n1, int n2)
     }
 }
 
+    
 //------------------------------------------------------------------------
 int startThreads (int nThreads, int nIds)
 // main function to start the threads; sets up the arg for each thread and
@@ -383,80 +417,159 @@ void threadCallback ( void *ptr )
     pthread_exit(0); /* exit */
 } 
 
+/*
+ * registerProducer
+ */
+int registerProducer(const char *arg_n, const char *arg_np1, const char *arg_np2) {
+    char d;
+    char string_01[64];
+    strcpy(string_01, arg_n);
+                d = *(string_01 + 2);
+                switch (d) {
+                    case 'p':
+                         if (bThread) {
+                             printf("%s\n", "Please supply process xor thread arguments.");
+                             return -1;
+                         }
+                         {
+                         char ppp_name[strlen(arg_n)];
+                         strcpy(ppp_name, arg_n);
+                         Pending_Producer_Process ppp_struct = {.name = ppp_name, .startID = atoi(arg_np1), .endID = atoi(arg_np2)};
+                         }
+                         bProcess = true;
+                         break;
+                    case 't':
+                         if (bProcess) {
+                             printf("%s\n", "process xor thread");
+                             return -1;
+                         }
+                         bThread = true;
+                         //TODO
+                         break;
+                    default:
+                         printf("%s\n", "what?");
+                         return -1;
+                }
+    return 0;
+}
+
+
+int registerConsumer(const char *arg_n, const char *arg_np1) {
+    char d;
+    char string_01[64];
+    strcpy(string_01, arg_n);
+                d = *(string_01 + 2);
+                switch (d) {
+                    case 'p':
+                         if (bThread) {
+                             printf("%s\n", "Please supply process xor thread arguments.");
+                             return -1;
+                         }
+                         bProcess = true;
+                         //TODO
+                         break;
+                    case 't':
+                         if (bProcess) {
+                             printf("%s\n", "process xor thread");
+                             return -1;
+                         }
+                         bThread = true;
+                         //TODO
+                         break;
+                    default:
+                         printf("%s\n", "what?");
+                         return -1;
+                }
+    return 0;
+}
+
+void handleUnknownArg() {}
+
 //------------------------------------------------------------------------
-int processInput (int argc, char *argv[])
+int processInput (const int argc, char *argv[])
 // command line processing;
 //------------------------------------------------------------------------
 {
-    printf ("pid: %d\n", getpid ());
+//  strcpy (semname, DEFAULT_SEMNAME);
 
-    bool bHelp = false;
-    bool bT = false;
-    bool bN = false;
-    char c;     
-    int nOptions = 0;
+    char string_01[64];
+    char c;
 
-    strcpy (semname, DEFAULT_SEMNAME);
- 
-    while ((c = getopt (argc, argv, "hs:i:pck:xm:t")) != -1) {
+    for (/*skip 1st argument (exe name)*/ int i = 1; i < argc; i++) {
+        
+        // 
+        strcpy(string_01, argv[i]);
+        if ('-' != *string_01) {
+            fprintf(stderr, "%s\n", "Encountered error parsing arguments (expected hyphen).");
+            fprintf(stderr, "%s\n", "Run with -h for usage info.");
+            exit(1);
+        }
+        c = *(string_01 + 1);
         switch (c) {
             case 'h':
                 bHelp = true;
                 break;
             case 's':
-                sleepTime = atoi (optarg);
-                break;
-            case 'm':
-                strcpy (semname,optarg);
-                break;
-            case 'k':
-                shmkey = atoi (optarg);
-                break;
-            case 'i':
-                incr = atoi (optarg);
+                bStatus = true;
                 break;
             case 'p':
-                bProducer = true;
+                registerProducer(argv[i], argv[i+1], argv[i+2]);
+                i += 2;
                 break;
             case 'c':
-                bConsumer = true;
-                break;
-            case 'x':
-                bSemaphore = true;
-                break;
-            case 't':
-                bThread = true;
+                registerConsumer(argv[i], argv[i+1]);
+                i += 1;
                 break;
             default:
-                abort ();
+                handleUnknownArg();
+                //printf("%s%s\n", "Unknown argument: ", string_01);
+                exit(0);
         }
     }
-
-    // sanity check
-    if (nOptions == 0) {
-       printf ("NO option specified--using defaults\n\n");
-    }
-
-    if (bHelp) {
-        usage (argv);
-    }
+    return 0;
 }
+
+void jquit(int code, const char *message) {
+    fprintf(stderr, "ERROR: %s\n", message);
+    exit(code);
+}
+
+void startProducers() {printf("%s\n", "startProducers()");}
+void startConsumers() {printf("%s\n", "startConsumers()");}
+void runThreadImpl() {printf("%s\n", "runThreadImpl()");}
+void helpStuff() {printf("%s\n", "helpStuff()");}
 
 //------------------------------------------------------------------------
 int main(int argc, char *argv[])
 //------------------------------------------------------------------------
 {
-    printf ("pid: %d\n", getpid ());
-
     processInput (argc, argv);
-    SignalStuff ();
-    if (bThread) {
-        startThreads (DEFAULT_NTHREADS, DEFAULT_NIDS);
+
+
+    if (bHelp) {
+        helpStuff();
+    }
+
+    if (bProcess && !bThread) {
+        startProducers();
+        startConsumers();
     }
     else {
-        updateShared (0, 1000);
+        runThreadImpl();
     }
-    return 0;
+
+    //SignalStuff ();
+
+    if (bThread) {
+        printf("Running Thread implementation\n");
+        //startThreads (DEFAULT_NTHREADS, DEFAULT_NIDS);
+    }
+    else {
+        printf("Running Process implementation\n");
+        //updateShared (0, 1000);
+    }
+
+    return 0;//TODO: question... exit(0) or return 0 -- which is better to use (and in which circumstances)?
 }
 
 

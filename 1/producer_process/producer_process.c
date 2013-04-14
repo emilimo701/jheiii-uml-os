@@ -16,6 +16,8 @@
 /* constants								    */
 /* -------------------------------------------------------------------------*/
 
+#define _XOPEN_SOURCE 500
+
 #define DEFAULT_SLEEP_TIME	5
 #define DEFAULT_INCR		1
 #define DEFAULT_SHMKEY		1234
@@ -181,17 +183,17 @@ void handler (int sig)
     printf ("In signal handler with signal # %d\n", sig);
 
     if (shared_data) {
+        /* Detach the shared memory segment */
+        if (shmdt(shared_data) == -1) {
+            perror("shmdt");
+            exit(1);
+        }
         /* remove shared memory */
         if (shmctl (shmid, IPC_RMID, 0) == -1) {
             error ("Handler failed ...");
         }
         else {
             printf ("Shared Memory Id: %d removed ...\n", shmid);
-        }
-        /* Detach the shared memory segment */
-        if (shmdt(shared_data) == -1) {
-            perror("shmdt");
-            exit(1);
         }
     }
 

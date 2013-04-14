@@ -1,4 +1,4 @@
-exename := driver
+exename := producer_process
 includes :=
 libs := pthread
 
