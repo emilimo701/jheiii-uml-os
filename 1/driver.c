@@ -1,33 +1,11 @@
-//------------------------------------------------------------------------
-// semaphore example code
-// 94.308 Introduction to Operating Systems
-// Spring 2012
-// Department of Computer Science
-// University of Massachusetts Lowell
-//
-// Instructor: Krishnan Seetharaman
-//
-// NOTE: To compile
-//   gcc -g -o sem semaphoreexample.c -lpthread
-//
-//------------------------------------------------------------------------
-
-/* -------------------------------------------------------------------------*/
-/* constants								    */
-/* -------------------------------------------------------------------------*/
-
 #define _XOPEN_SOURCE 500
-
 #define DEFAULT_SLEEP_TIME	5
 #define DEFAULT_INCR		1
 #define DEFAULT_SHMKEY		1234
 #define DEFAULT_SEMNAME		"foo"
-
 #define DEFAULT_NTHREADS	2
 #define DEFAULT_NIDS		1000000
-
 #define DEFAULT_ERRCODE		28657
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,9 +24,7 @@
 #include <pthread.h>
 #include <string.h> 
 
-
-// struct to hold thread specific info; passed in to the thread callback
-// function;
+// struct to hold thread specific info; passed in to the thread callback function
 typedef struct SharedData_s {
     int threadId;
     int start;
@@ -57,8 +33,7 @@ typedef struct SharedData_s {
 
 void threadCallback ( void *ptr );
 
-// struct to hold thread specific info; passed in to the thread callback
-// function;
+// struct to hold thread specific info; passed in to the thread callback function
 typedef struct ThreadData_s {
     int threadId;
     SharedData *shared_data;
@@ -94,10 +69,8 @@ ThreadData td;
 Pending_Producer_Process ppp[32];
 int ppp_count = 0;
 
-//------------------------------------------------------------------------
 void CreateShMem (void)
 /* create and attach shared memory                                          */
-//------------------------------------------------------------------------
 {       /* CreateShMem */
     /* get shared memory */
     int shmflag = 0666;
@@ -131,14 +104,10 @@ void CreateShMem (void)
     printf ("\n");
 }       /* CreateShMem */
 
-//------------------------------------------------------------------------
 void CreateSem (bool bCreate)
 /* create semaphores                                                        */
-//------------------------------------------------------------------------
-
 {       /* CreateSem */
     int i;
-
     //create & initialize semaphore; use O_CREAT flag in only one process;
      if (bCreate) {
          mutex = sem_open(semname,O_CREAT,0644,1);
@@ -154,11 +123,8 @@ void CreateSem (bool bCreate)
     printf ("Semaphore \"%s\" created\n", semname);
 }       /* CreateSem */
 
-//------------------------------------------------------------------------
 void SignalStuff ()
 /* do signal stuff - select signal types, and set up handler for them       */
-//------------------------------------------------------------------------
-
 {       /* SignalStuff */
     sigset_t mask_sigs;
     int i, nsigs;
@@ -166,7 +132,6 @@ void SignalStuff ()
     int sigs[] = {SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGTERM, SIGBUS,
                   SIGSEGV, SIGFPE};
     struct sigaction new;
-   
     nsigs = sizeof (sigs) / sizeof (int);
     sigemptyset (&mask_sigs);
    
@@ -174,7 +139,6 @@ void SignalStuff ()
     for (i = 0; i < nsigs; i++) {
         sigaddset (&mask_sigs, sigs[i]);
     }
- 
     /* set up handler for each signal type */
     for (i = 0; i < nsigs; i++) {
         new.sa_handler = handler;
@@ -187,16 +151,11 @@ void SignalStuff ()
     }
 }       /* SignalStuff */
 
-//------------------------------------------------------------------------
 void handler (int sig)
 /* signal handler for all signals. performs graceful termination            */
-//------------------------------------------------------------------------
-
 {       /* handler */
     int i, j, k;
-
     printf ("In signal handler with signal # %d\n", sig);
-
     if (shared_data) {
         /* Detach the shared memory segment */
         if (shmdt(shared_data) == -1) {
@@ -211,20 +170,16 @@ void handler (int sig)
             printf ("Shared Memory Id: %d removed ...\n", shmid);
         }
     }
-
     // clean up the semaphore;
     sem_close (mutex);
     if (bProducer) {
        sem_unlink (semname);
        printf ("semaphore Id: %s removed ...\n", semname);
     }
-
     exit (5);
 }       /* handler */
 
-//------------------------------------------------------------------------
 int usage (char *argv[])
-//------------------------------------------------------------------------
 {
    char buf[1024];
    char *usageString =
@@ -267,17 +222,12 @@ int usage (char *argv[])
     exit (0);
 }
 
-//------------------------------------------------------------------------
 void error (const char* msg)
 // display error message and exit with non-zero error code;
-//------------------------------------------------------------------------
 {
     printf ("ERROR: %s\n", msg);
     exit (1);
 }
-
-
-
 
 int wrapsyscall(int retval, const char *errmsg) {
     if (-1 == retval) {
@@ -291,17 +241,12 @@ int wrapsyscall(int retval, const char *errmsg) {
     return retval;
 }
 
-
-//------------------------------------------------------------------------
 void updateShared (int n1, int n2)
 // main routine; both processes write to and read from shared memory;
-//------------------------------------------------------------------------
 {
     int x;
-
     CreateSem (bProducer);
     CreateShMem ();
-
     while (1) {
         // use semaphore if specified by command line arg;
         if (bSemaphore) sem_wait (mutex);
@@ -330,15 +275,10 @@ void updateShared (int n1, int n2)
     }
 }
 
-    
-//------------------------------------------------------------------------
 int startThreads (int nThreads, int nIds)
-// main function to start the threads; sets up the arg for each thread and
-// creates the thread; then waits for the threads to finish;
-//------------------------------------------------------------------------
+// main function to start the threads; sets up the arg for each thread and creates the thread; then waits for the threads to finish
 {
     CreateSem (true);
-
     // shared buffer--we keep it on the stack in this case but can be global or
     // on the heap too;
     SharedData sd;
@@ -375,10 +315,8 @@ int startThreads (int nThreads, int nIds)
     }
 } 
 
-//------------------------------------------------------------------------
 void threadCallback ( void *ptr )
 // thread callback function; do the real work for the thread in this function;
-//------------------------------------------------------------------------
 {
     ThreadData *td;
     td = (ThreadData*) ptr;
@@ -386,7 +324,6 @@ void threadCallback ( void *ptr )
 
     int id;
     printf("[Thread %d] start: %d end: %d\n", td->threadId, td->shared_data->start, td->shared_data->end);
-
     // print the id range;
     while (1) {
         // use semaphore if specified by command line arg;
@@ -417,9 +354,6 @@ void threadCallback ( void *ptr )
     pthread_exit(0); /* exit */
 } 
 
-/*
- * registerProducer
- */
 int registerProducer(const char *arg_n, const char *arg_np1, const char *arg_np2) {
     char d;
     char string_01[64];
@@ -453,7 +387,6 @@ int registerProducer(const char *arg_n, const char *arg_np1, const char *arg_np2
     return 0;
 }
 
-
 int registerConsumers(const char *arg_n, const char *arg_np1) {
     char d;
     char string_01[64];
@@ -485,13 +418,10 @@ int registerConsumers(const char *arg_n, const char *arg_np1) {
 
 void handleUnknownArg() {printf("%s\n", "handleUnknownArg()");}
 
-//------------------------------------------------------------------------
 int processInput (const int argc, char *argv[])
 // command line processing;
-//------------------------------------------------------------------------
 {
 //  strcpy (semname, DEFAULT_SEMNAME);
-
     char string_01[64];
     char c;
 
@@ -527,7 +457,6 @@ int processInput (const int argc, char *argv[])
     if (bProcess == bThread) {
         jquit(1, "Must select process XOR thread implementation.");
     }
-
     return 0;
 }
 
@@ -541,17 +470,12 @@ void startConsumers() {printf("%s\n", "startConsumers()");}
 void runThreadImpl() {printf("%s\n", "runThreadImpl()");}
 void helpStuff() {printf("%s\n", "helpStuff()");}
 
-//------------------------------------------------------------------------
 int main(int argc, char *argv[])
-//------------------------------------------------------------------------
 {
     processInput (argc, argv);
-
-
     if (bHelp) {
         helpStuff();
     }
-
     if (bProcess && !bThread) {
         startProducers();
         startConsumers();
@@ -559,9 +483,7 @@ int main(int argc, char *argv[])
     else {
         runThreadImpl();
     }
-
     //SignalStuff ();
-
     if (bThread) {
         printf("Running Thread implementation\n");
         //startThreads (DEFAULT_NTHREADS, DEFAULT_NIDS);
@@ -570,11 +492,7 @@ int main(int argc, char *argv[])
         printf("Running Process implementation\n");
         //updateShared (0, 1000);
     }
-
     return 0;//TODO: question... exit(0) or return 0 -- which is better to use (and in which circumstances)?
 }
-
-
-
 
 
