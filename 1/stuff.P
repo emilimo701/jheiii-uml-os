@@ -1,4 +1,4 @@
-driver.o: driver.c main.h /usr/include/stdio.h /usr/include/features.h \
+stuff.o: stuff.c main.h /usr/include/stdio.h /usr/include/features.h \
  /usr/include/x86_64-linux-gnu/bits/predefs.h \
  /usr/include/x86_64-linux-gnu/sys/cdefs.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
@@ -46,7 +46,7 @@ driver.o: driver.c main.h /usr/include/stdio.h /usr/include/features.h \
  /usr/include/endian.h /usr/include/x86_64-linux-gnu/bits/endian.h \
  /usr/include/sched.h /usr/include/x86_64-linux-gnu/bits/sched.h \
  /usr/include/x86_64-linux-gnu/bits/setjmp.h
-driver.c main.h /usr/include/stdio.h /usr/include/features.h :
+stuff.c main.h /usr/include/stdio.h /usr/include/features.h :
  /usr/include/x86_64-linux-gnu/bits/predefs.h :
  /usr/include/x86_64-linux-gnu/sys/cdefs.h :
  /usr/include/x86_64-linux-gnu/bits/wordsize.h :
