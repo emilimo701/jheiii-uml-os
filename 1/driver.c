@@ -454,7 +454,7 @@ int registerProducer(const char *arg_n, const char *arg_np1, const char *arg_np2
 }
 
 
-int registerConsumer(const char *arg_n, const char *arg_np1) {
+int registerConsumers(const char *arg_n, const char *arg_np1) {
     char d;
     char string_01[64];
     strcpy(string_01, arg_n);
@@ -483,7 +483,7 @@ int registerConsumer(const char *arg_n, const char *arg_np1) {
     return 0;
 }
 
-void handleUnknownArg() {}
+void handleUnknownArg() {printf("%s\n", "handleUnknownArg()");}
 
 //------------------------------------------------------------------------
 int processInput (const int argc, char *argv[])
@@ -496,36 +496,38 @@ int processInput (const int argc, char *argv[])
     char c;
 
     for (/*skip 1st argument (exe name)*/ int i = 1; i < argc; i++) {
-        
-        // 
         strcpy(string_01, argv[i]);
         if ('-' != *string_01) {
-            fprintf(stderr, "%s\n", "Encountered error parsing arguments (expected hyphen).");
-            fprintf(stderr, "%s\n", "Run with -h for usage info.");
-            exit(1);
+            jquit(1, "Encountered error parsing arguments (expected hyphen).\nRun with -h for usage info.");
         }
         c = *(string_01 + 1);
         switch (c) {
             case 'h':
                 bHelp = true;
+                printf("%s\n", "TODO: print help and exit.");
                 break;
             case 's':
                 bStatus = true;
+                printf("%s\n", "TODO: print status.");
                 break;
             case 'p':
                 registerProducer(argv[i], argv[i+1], argv[i+2]);
                 i += 2;
                 break;
             case 'c':
-                registerConsumer(argv[i], argv[i+1]);
+                registerConsumers(argv[i], argv[i+1]);
                 i += 1;
                 break;
             default:
                 handleUnknownArg();
-                //printf("%s%s\n", "Unknown argument: ", string_01);
-                exit(0);
+                jquit(1, "please try again.");
         }
     }
+
+    if (bProcess == bThread) {
+        jquit(1, "Must select process XOR thread implementation.");
+    }
+
     return 0;
 }
 
