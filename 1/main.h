@@ -6,6 +6,8 @@
 #define DEFAULT_NTHREADS	2
 #define DEFAULT_NIDS		1000000
 #define DEFAULT_ERRCODE		28657
+#define MAX_PRODUCERS		64
+#define MAX_CONSUMERS		64
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +25,7 @@
 #include <semaphore.h>
 #include <pthread.h>
 #include <string.h> 
+#include <limits.h>
 
 // struct to hold thread specific info; passed in to the thread callback function
 typedef struct SharedData_s {
@@ -40,10 +43,10 @@ typedef struct ThreadData_s {
 } ThreadData;
 
 typedef struct {
-    char *name;
+    char name[8];
     int startID;
     int endID;
-} Pending_Producer_Process;
+} Pending_Producer;
 
 // forward declarations
 void handler (int sig);
@@ -68,6 +71,7 @@ int incr;
 bool bHelp;
 bool bStatus;
 bool bProducer;
+bool bVerbose;
 bool bConsumer;
 bool bProcess;
 bool bThread;
@@ -76,6 +80,9 @@ int shmkey;
 char semname[256];
 sem_t *mutex;
 ThreadData td;
-Pending_Producer_Process ppp[32];
-int ppp_count;
+Pending_Producer pp[MAX_PRODUCERS];
+int pp_count;
+bool bool_producerArgFound;
+bool bool_consumerArgFound;
+int nConsumers;
 
